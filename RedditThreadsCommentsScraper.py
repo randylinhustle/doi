@@ -9,37 +9,47 @@ df = pd.read_csv("ChatGPT.csv", encoding='utf-8-sig')
 try:
     df_temp = pd.read_csv("ChatGPT_threads_comments_temp.csv", encoding='utf-8-sig')
     processed_ids = set(df_temp['post_id'].unique())
-    # print(f"Loaded {len(processed_ids)} processed post_ids from temp file.")
+    comment_list = df_temp.to_dict('records')  # Keep previously scraped comments in memory
+    print(f"Loaded {len(processed_ids)} processed post_ids from temp file.")
 except FileNotFoundError:
     processed_ids = set()
-    # print("No temp file found. Starting fresh.")
+    comment_list = []
+    print("No temp file found. Starting fresh.")
 
-comment_list = []
 total_posts = len(df)
-# print(f"Total posts to process: {total_posts}")
+print(f"Total posts to process: {total_posts}")
 
-reddit = praw.Reddit(client_id="nh7XN7LJUvka4-Hv1YNY4g",
-                     client_secret="E1NQyOjuWk__PwPFm6d2l1PM-xHdQw",
-                     password="lzh123456",
-                     user_agent="goheels",
-                     username="ccplastforever")
+# Configure your Reddit client
+reddit = praw.Reddit(
+    client_id="nh7XN7LJUvka4-Hv1YNY4g",
+    client_secret="E1NQyOjuWk__PwPFm6d2l1PM-xHdQw",
+    password="lzh123456",
+    user_agent="goheels",
+    username="ccplastforever"
+)
+
+# Batch settings for printing and temp saving
+PRINT_BATCH_SIZE = 10_000
+SAVE_BATCH_SIZE = 1_000
+save_counter = 0  # Tracks how many posts processed since last temp save
 
 for index, row in df.iterrows():
-    url = row['permalink']
-    # Extract the post_id from the URL
-    post_id = url.split('/')[-1]  
-
+    post_id = row['permalink'].rstrip('/').split('/')[-1]  # Extract ID from permalink
+    
     # Skip if already processed
     if post_id in processed_ids:
         continue
 
     try:
-        submission = reddit.submission(url=url)
+        submission = reddit.submission(url=row['permalink'])
         submission.comments.replace_more(limit=0)
-        post_created_readable = datetime.utcfromtimestamp(submission.created_utc).strftime('%Y-%m-%d %H:%M:%S')
-        posts_remaining = total_posts - (index + 1)
-        # print(f"Working on: {submission.id} - {submission.title} | Created: {post_created_readable} | Posts remaining: {posts_remaining}")
-        
+
+        # Gather submission info
+        post_created_readable = datetime.utcfromtimestamp(
+            submission.created_utc
+        ).strftime('%Y-%m-%d %H:%M:%S')
+
+        # Collect comments
         for comment in submission.comments:
             comment_author = str(comment.author) if comment.author else None
             comment_subreddit = str(comment.subreddit) if comment.subreddit else None
@@ -47,9 +57,9 @@ for index, row in df.iterrows():
 
             comment_list.append({
                 # Post fields
+                "post_id": submission.id,
                 "post_title": submission.title,
                 "post_author": str(submission.author) if submission.author else None,
-                "post_id": submission.id,
                 "post_created": submission.created_utc,
                 "post_link_flair_text": submission.link_flair_text,
                 "post_link_upvote_ratio": submission.upvote_ratio,
@@ -58,7 +68,6 @@ for index, row in df.iterrows():
                 # Comment fields
                 "comment_author": comment_author,
                 "comment_body": comment.body,
-                "comment_body_html": comment.body_html,
                 "comment_created_utc": comment.created_utc,
                 "comment_distinguished": comment.distinguished,
                 "comment_edited": comment.edited,
@@ -68,31 +77,35 @@ for index, row in df.iterrows():
                 "comment_parent_id": comment.parent_id,
                 "comment_permalink": comment.permalink,
                 "comment_replies_count": len(comment.replies),
-                "comment_saved": comment.saved,
                 "comment_score": comment.score,
-                "comment_stickied": comment.stickied,
                 "comment_subreddit": comment_subreddit,
                 "comment_subreddit_id": comment.subreddit_id,
                 "comment_submission_id": comment_submission_id
             })
 
-        # Add this post_id to processed_ids
+        # Mark this post as processed
         processed_ids.add(submission.id)
+        save_counter += 1
 
-        # Save temp progress more frequently to avoid losing track if interrupted
-        pd.DataFrame(comment_list).to_csv('ChatGPT_threads_comments_temp.csv', index=False, encoding="utf-8-sig")
-            
+        # Batched saving to temp CSV every 1,000 posts
+        if save_counter % SAVE_BATCH_SIZE == 0:
+            pd.DataFrame(comment_list).to_csv('ChatGPT_threads_comments_temp.csv', index=False, encoding="utf-8-sig")
+            print(f"[TEMP SAVE] Processed {index+1} / {total_posts} posts so far.")
+
+        # Batched printing every 10,000 posts
+        if (index + 1) % PRINT_BATCH_SIZE == 0:
+            print(f"[PROGRESS] Processed {index+1} / {total_posts} posts...")
+
     except Exception as e:
-        print(f"Error processing {url}: {e}")
+        print(f"Error processing {row['permalink']}: {e}")
 
-# Once done, convert to DataFrame
+# Final save after the loop finishes
 df_comment = pd.DataFrame(comment_list)
 
 # Convert timestamps
 df_comment['post_created'] = pd.to_datetime(df_comment['post_created'], unit='s', errors='coerce')
 df_comment['comment_created_utc'] = pd.to_datetime(df_comment['comment_created_utc'], unit='s', errors='coerce')
 
-# Save the final DataFrame to CSV
+# Save final result
 df_comment.to_csv('ChatGPT_threads_comments_2024.csv', index=False, encoding="utf-8-sig")
-
 print("Data collection complete.")
