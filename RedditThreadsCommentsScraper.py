@@ -9,14 +9,14 @@ df = pd.read_csv("ChatGPT.csv", encoding='utf-8-sig')
 try:
     df_temp = pd.read_csv("ChatGPT_threads_comments_temp.csv", encoding='utf-8-sig')
     processed_ids = set(df_temp['post_id'].unique())
-    print(f"Loaded {len(processed_ids)} processed post_ids from temp file.")
+    # print(f"Loaded {len(processed_ids)} processed post_ids from temp file.")
 except FileNotFoundError:
     processed_ids = set()
-    print("No temp file found. Starting fresh.")
+    # print("No temp file found. Starting fresh.")
 
 comment_list = []
 total_posts = len(df)
-print(f"Total posts to process: {total_posts}")
+# print(f"Total posts to process: {total_posts}")
 
 reddit = praw.Reddit(client_id="nh7XN7LJUvka4-Hv1YNY4g",
                      client_secret="E1NQyOjuWk__PwPFm6d2l1PM-xHdQw",
@@ -38,7 +38,7 @@ for index, row in df.iterrows():
         submission.comments.replace_more(limit=0)
         post_created_readable = datetime.utcfromtimestamp(submission.created_utc).strftime('%Y-%m-%d %H:%M:%S')
         posts_remaining = total_posts - (index + 1)
-        print(f"Working on: {submission.id} - {submission.title} | Created: {post_created_readable} | Posts remaining: {posts_remaining}")
+        # print(f"Working on: {submission.id} - {submission.title} | Created: {post_created_readable} | Posts remaining: {posts_remaining}")
         
         for comment in submission.comments:
             comment_author = str(comment.author) if comment.author else None
