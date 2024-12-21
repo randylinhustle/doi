@@ -3,11 +3,11 @@ from datetime import datetime
 import praw
 
 # Load the main DataFrame
-df = pd.read_csv("CharacterAI.csv", encoding='utf-8-sig')
+df = pd.read_csv("ChatGPT.csv", encoding='utf-8-sig')
 
 # Attempt to load the temporary CSV file, if it exists
 try:
-    df_temp = pd.read_csv("CharacterAI_threads_comments_temp.csv", encoding='utf-8-sig')
+    df_temp = pd.read_csv("ChatGPT_threads_comments_temp.csv", encoding='utf-8-sig')
     processed_ids = set(df_temp['post_id'].unique())
     print(f"Loaded {len(processed_ids)} processed post_ids from temp file.")
 except FileNotFoundError:
@@ -80,7 +80,7 @@ for index, row in df.iterrows():
         processed_ids.add(submission.id)
 
         # Save temp progress more frequently to avoid losing track if interrupted
-        pd.DataFrame(comment_list).to_csv('CharacterAI_threads_comments_temp.csv', index=False, encoding="utf-8-sig")
+        pd.DataFrame(comment_list).to_csv('ChatGPT_threads_comments_temp.csv', index=False, encoding="utf-8-sig")
             
     except Exception as e:
         print(f"Error processing {url}: {e}")
@@ -93,6 +93,6 @@ df_comment['post_created'] = pd.to_datetime(df_comment['post_created'], unit='s'
 df_comment['comment_created_utc'] = pd.to_datetime(df_comment['comment_created_utc'], unit='s', errors='coerce')
 
 # Save the final DataFrame to CSV
-df_comment.to_csv('CharacterAI_threads_comments_2024.csv', index=False, encoding="utf-8-sig")
+df_comment.to_csv('ChatGPT_threads_comments_2024.csv', index=False, encoding="utf-8-sig")
 
 print("Data collection complete.")
